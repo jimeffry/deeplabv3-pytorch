@@ -102,18 +102,18 @@ def get_cityscape_label_img(csvpath):
     keys_lab = [key for key in label_info]
     label_values.insert(0,[0,0,0])
     label_values = np.array(label_values)
-    img = np.zeros([1100,1100],dtype=np.int16)
-    for i in range(1,22):
+    img = np.zeros([1200,1200],dtype=np.int16)
+    for i in range(1,24):
         img[i*50:(i+1)*50,:] = i
     label_img = label_values[img.astype(int)]
     label_img = np.uint8(label_img)
-    for j in range(21):
+    for j in range(23):
         points = (int(20),int((j+1)*50))
         font=cv2.FONT_HERSHEY_COMPLEX_SMALL
         font_scale = 1
         color = (255,255,255)
         cv2.putText(label_img,keys_lab[j], points, font, font_scale, color, 2)
-    cv2.imwrite('../datasets/voc_colorv2.jpg', cv2.cvtColor(label_img, cv2.COLOR_RGB2BGR))
+    cv2.imwrite('../datasets/voc_colorv3.jpg', cv2.cvtColor(label_img, cv2.COLOR_RGB2BGR))
 
 def getdatalist(imgdir,outfile1,outfile2):
     fcnts = os.listdir(imgdir)
@@ -132,8 +132,23 @@ def getdatalist(imgdir,outfile1,outfile2):
     fw.close()
     fw2.close()
 
+def genlistdir1(imgdir,outfile):
+    '''
+    imgdir: imgdir/images.jpg
+    '''
+    fcnts = os.listdir(imgdir)
+    fw = open(outfile,'w')
+    cnt = 0
+    for tmp in fcnts:
+        cnt+=1
+        imgname = tmp.strip()[:-4]
+        fw.write(imgname+'\n')
+    fw.close()
+    print('total images:',cnt)
+
 if __name__=='__main__':
     # get_data('/data/detect/VOC/VOCdevkit/VOC2010/labels')
     # get_color('../datasets/cityscapes_info.json','../datasets/cityscape.txt')
-    get_cityscape_label_img('../datasets/voc2010v2.csv')
+    get_cityscape_label_img('../datasets/voc2010v3.csv')
     # getdatalist('/data/detect/VOC/VOCdevkit/VOC2010/Seglabels22','../datasets/voctrain.txt','../datasets/vocval.txt')
+    # genlistdir1('/home/lxy/Desktop/anshan/正常标注/','../datasets/anshan_train.txt')

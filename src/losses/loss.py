@@ -1,6 +1,10 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
+import os
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__),'../networks'))
+from point_features import point_sample
 
 def flatten(tensor):
     """Flattens a given tensor such that the channel axis is first.
@@ -31,7 +35,7 @@ class DiceLoss(nn.Module):
 
         intersect = (output * target).sum(-1)
         denominator = (output + target).sum(-1)
-        dice = intersect / denominator
+        dice = 2*intersect / denominator
         dice = torch.mean(dice)
         return 1 - dice
         # return 1 - 2. * intersect / denominator
@@ -69,3 +73,28 @@ class SoftmaxFocalLoss(nn.Module):
         log_score = factor * log_score
         loss = self.nll(log_score, labels)
         return loss
+
+class Multiloss(nn.Module):
+    def __init__(self,upscale):
+        super().__init__()
+        self.common_stride = upscale
+
+    def forward(self,seglogits,pointlogits,pointcoords,targets):
+        point_targets = (point_sample(targets.unsqueeze(1).to(torch.float),
+                    point_coords,
+                    mode="nearest",
+                    align_corners=False,
+                )
+                .squeeze(1)
+                .to(torch.long)
+            )
+        ploss = F.cross_entropy(
+                pointlogits, point_targets, reduction="mean"
+            )
+        seglogits = F.interpolate(
+            seglogits, scale_factor=self.common_stride, mode="bilinear", align_corners=False
+        )
+        segloss = F.cross_entropy(
+            seglogits, targets, reduction="mean"
+        )
+        return ploss+segloss

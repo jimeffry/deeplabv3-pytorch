@@ -14,9 +14,12 @@ sys.path.append(os.path.join(os.path.dirname(__file__),'../preparedata'))
 # from cityscape import CityScapes
 from contexvoc import ContextVoc
 sys.path.append(os.path.join(os.path.dirname(__file__),'../networks'))
-from deeplabv3pluss import DeeplabV3plus
+# from deeplabv3pluss import DeeplabV3plus
+from deeplab_scarnet import DeeplabV3plus
+from scarnet import SCAR
 sys.path.append(os.path.join(os.path.dirname(__file__),'../losses'))
-from loss import DiceLoss,OhemCELoss,SoftmaxFocalLoss
+from loss import DiceLoss,OhemCELoss,SoftmaxFocalLoss,Multiloss
+from focalloss import FocalLoss
 sys.path.append(os.path.join(os.path.dirname(__file__),'../utils'))
 from util import poly_lr_scheduler
 from util import reverse_one_hot, compute_global_accuracy
@@ -74,10 +77,10 @@ def train_net(args):
         drop_last=True
     )
     # dataset_val = CityScapes(cfgs.data_dir,  mode='val')
-    dataset_val = ContextVoc(cfgs.val_file,cropsize=cropsize, mode='train')
+    dataset_val = ContextVoc(cfgs.val_file,cropsize=cropsize, mode='test')
     dataloader_val = DataLoader(
         dataset_val,
-        batch_size=2,
+        batch_size=1,
         shuffle=True,
         num_workers=args.num_workers,
         drop_last=True
@@ -89,14 +92,15 @@ def train_net(args):
     else:
         device = torch.device('cpu')
     # model = BiSeNet(args.num_classes, args.context_path)
-    net = DeeplabV3plus(cfgs).to(device)
-    if args.mulgpu:
-        net = torch.nn.DataParallel(net)
+    # net = DeeplabV3plus(cfgs).to(device)
+    net = SCAR(load_weights=True).to(device)
     if args.pretrained_model_path is not None:
         print('load model from %s ...' % args.pretrained_model_path)
-        net.module.load_state_dict(torch.load(args.pretrained_model_path,map_location=device))
+        net.load_state_dict(torch.load(args.pretrained_model_path,map_location=device),strict=False)
         # net.load_state_dict(torch.load(args.pretrained_model_path))
         print('Done!')
+    if args.mulgpu:
+        net = torch.nn.DataParallel(net)
     net.train()
     # build optimizer
     if args.optimizer == 'rmsprop':
@@ -118,7 +122,10 @@ def train_net(args):
         n_min = args.batch_size * cfgs.crop_height * cfgs.crop_width //16
         criterion = OhemCELoss(thresh=score_thres, n_min=n_min)
     elif args.losstype == 'focal':
-        criterion = SoftmaxFocalLoss()
+        # criterion = SoftmaxFocalLoss()
+        criterion = FocalLoss()
+    elif args.losstype == 'multi':
+        criterion = Multiloss(4)
     return net,optimizer,criterion,dataloader_train,dataloader_val
 
 def main():
@@ -158,8 +165,8 @@ def main():
                 cv2.imshow('gt',gt)
                 cv2.waitKey(0)
             '''
-            output = net(images)
-            loss = criterion(output, target)
+            seglogits,pointlogits,pointcoord = net(images)
+            loss = criterion(seglogits,pointlogits,pointcoord, target)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -174,7 +181,10 @@ def main():
                 # print("val precision: {:.6f}".format(precision))
                 if precision > max_miou:
                     max_miou = precision
-                    torch.save(net.module.state_dict(),os.path.join(cfgs.save_model_path, 'deeplabv3_voc_best.pth'))
+                    if args.mulgpu:
+                        torch.save(net.module.state_dict(),os.path.join(cfgs.save_model_path, 'deeplabv3_voc_best.pth'))
+                    else:
+                        torch.save(net.state_dict(),os.path.join(cfgs.save_model_path, 'deeplabv3_voc_best.pth'))
                     logger.info("saved model: ************* step: %d" % step)
                 # writer.add_scalar('step/precision_val', precision, step)
                 # writer.add_scalar('step/miou val', miou, step)

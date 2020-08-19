@@ -23,7 +23,7 @@ class DeeplabV3plus(nn.Module):
         self.dropout1 = nn.Dropout(0.5)
         # self.upsample4 = nn.UpsamplingBilinear2d(scale_factor=4) 
         # self.upsample_sub = nn.UpsamplingBilinear2d(scale_factor=cfg.MODEL_OUTPUT_STRIDE//4)
-        self.upsample4 = nn.Upsample(scale_factor=4)
+        # self.upsample4 = nn.Upsample(scale_factor=4)
         self.upsample_sub = nn.Upsample(scale_factor=cfg.MODEL_OUTPUT_STRIDE//4)
 
         indim = 256
@@ -46,32 +46,42 @@ class DeeplabV3plus(nn.Module):
                 nn.Dropout(0.1),
         )
         self.cls_conv = nn.Conv2d(cfg.MODEL_ASPP_OUTDIM, cfg.num_classes, 1, 1, padding=0)
-        # for m in self.modules():
-        #     if isinstance(m, nn.Conv2d):
-        #         nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-        #     elif isinstance(m, nn.BatchNorm2d):
-        #         nn.init.constant_(m.weight, 1)
-        #         nn.init.constant_(m.bias, 0)
         self.backbone = build_backbone(cfg.MODEL_BACKBONE, os=cfg.MODEL_OUTPUT_STRIDE)
         # self.backbone_layers = self.backbone.get_layers()
         # print(len(self.backbone_layers))
+        self.pointhead = PointRendSemSegHead()
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         x = x.permute(0,3,1,2)
         x_bottom = self.backbone(x)
         layers = self.backbone.get_layers()
+        print('backout',layers[0].shape,layers[1].shape,layers[2].shape,layers[3].shape)
         feature_aspp = self.aspp(layers[-1])
+        # print('asspp',feature_aspp.shape)
         feature_aspp = self.dropout1(feature_aspp)
         feature_aspp = self.upsample_sub(feature_aspp)
 
         feature_shallow = self.shortcut_conv(layers[0])
         feature_cat = torch.cat([feature_aspp,feature_shallow],1)
+        # print('feature',feature_cat.size())
         result = self.cat_conv(feature_cat) 
+        # print('result',result.size())
         result = self.cls_conv(result)
-        result = self.upsample4(result)
+        pointout,pointcoords = self.pointhead(result,layers[0])
+        # result = self.upsample4(result)
         #for test
-        result = result.permute(0,2,3,1)
-        result = F.softmax(result, dim=3)
-        result = torch.argmax(result, dim=3)
-        return result
+        if not self.training:
+            # result = F.interpolate(pointout,scale_factor=4,mode="bilinear",align_corners=False)
+            result = pointout.permute(0,2,3,1)
+            result = F.softmax(result, dim=3)
+            result = torch.argmax(result, dim=3)
+            return result,[],[]
+        else:
+            return result,pointout,pointcoords
 

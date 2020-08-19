@@ -20,6 +20,7 @@ import torch
 import torch.nn.functional as F
 sys.path.append(os.path.join(os.path.dirname(__file__),'../networks'))
 from deeplabv3pluss import DeeplabV3plus
+from scarnet import SCAR
 sys.path.append(os.path.join(os.path.dirname(__file__),'../utils'))
 from util import reverse_one_hot
 sys.path.append(os.path.join(os.path.dirname(__file__),'../configs'))
@@ -69,6 +70,7 @@ class GroundSeg(object):
         else:
             device = torch.device('cpu')
         self.net = DeeplabV3plus(cfgs).to(device)
+        # self.net = SCAR(True).to(device)
         state_dict = torch.load(modelpath,map_location=device)
         # state_dict = self.renamedict(state_dict)
         self.net.load_state_dict(state_dict)
@@ -106,7 +108,7 @@ class GroundSeg(object):
         bt_img = torch.from_numpy(imgs)
         if self.use_cuda:
             bt_img = bt_img.cuda()
-        _,predicts  = self.net(bt_img)
+        predicts  = self.net(bt_img)
         # predicts = F.softmax(predicts, dim=1)
         t2 = time.time()
         print('inference time:',t2-t1)
@@ -167,7 +169,7 @@ class GroundSeg(object):
                 frame,accs = self.inference([img])
                 # cv2.imshow('src',img)
                 # cv2.imshow('result',frame[0])
-                print('area:',accs[0])
+                # print('area:',accs[0])
                 save_name = tmp[:-4]+'.jpg'
                 savepath = os.path.join(self.save_dir,save_name)
                 cv2.imwrite(savepath,frame[0])
@@ -229,7 +231,7 @@ class GroundSeg(object):
                 print('area',acc[0])
                 cv2.imshow('result',frame[0])
                 cv2.imshow('src',img)
-                cv2.imwrite(imgname,frame[0])
+                # cv2.imwrite(imgname,frame[0])
                 key = cv2.waitKey(0) 
         else:
             print('please input the right img-path')

@@ -67,7 +67,7 @@ def onnx2tf(modelpath):
     # img = np.transpose(img,(2,0,1))
     # output = tf_rep.run(np.asarray(img, dtype=np.float32)[np.newaxis,:,:, :])
     # print('The digit is classified as ', np.sum(output))
-    tf_rep.export_graph('../models/deeplab.pb')
+    tf_rep.export_graph('../models/waterSeg.pb')
 
 def pbtxt_to_graphdef(filename):
     with open(filename, 'r') as f:
@@ -91,10 +91,11 @@ if __name__=='__main__':
     modelpath = '/data/models/img_seg/deeplabv3_voc_best3.pth'
     # modelpath = './srd_tr.pth'
     # tr2onnx(modelpath)
-    modelpath = '../models/deeplab.onnx'
-    # onnx2tf(modelpath)
+    # modelpath = '../models/deeplab.onnx'
+    modelpath = '/data/waterSeg_18.onnx'
+    onnx2tf(modelpath)
     modelpath = '../models/deeplab.pb'
     # modelpath = '/data/models/head/csr_keras.pb'
     # graphdef_to_pbtxt(modelpath)
     modelpath = '../models/deeplab.pbtxt'
-    pbtxt_to_graphdef(modelpath)
+    # pbtxt_to_graphdef(modelpath)

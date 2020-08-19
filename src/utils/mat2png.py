@@ -34,7 +34,7 @@ def c459259l(file1,file2):
 def mat2png():
     path='/data/detect/VOC/VOCdevkit/VOC2010/trainval'
     files=os.listdir(path)
-    labels_path= '/data/detect/VOC/VOCdevkit/VOC2010/Seglabels22' #Seglabels' #os.path.join(path,'Seglabels')
+    labels_path= '/data/detect/VOC/VOCdevkit/VOC2010/test22' #Seglabels' #os.path.join(path,'Seglabels')
     total_num = len(files)
     name2label = c459259l('../datasets/22label.txt','/data/detect/VOC/VOCdevkit/VOC2010/labels.txt')
     keys = name2label.keys()
@@ -56,27 +56,33 @@ def mat2png():
             dst_path=os.path.join(labels_path,mat_idx+'.png')
             cv2.imwrite(dst_path,tmp_label)
 
-def sel2label(imgdir,disdir):
-    fcnts = os.listdir(imgdir)
-    tmpls = [7,9,11,14,15,16,18,25,32,33,36,37,46,49,50,51,55,56,57]
+def sel2label(labeldir,imgdir,disdir):
+    fcnts = os.listdir(labeldir)
+    tmpls = range(1,24)
     totalnum = len(fcnts)
     cnt =0
     for k in tqdm.tqdm(range(totalnum)):
-        tmp = fcnts[k]
-        fg = 0
-        imgpath = os.path.join(imgdir,tmp.strip())
+        tmp = fcnts[k].strip()
+        # fg = 0
+        imgpath = os.path.join(labeldir,tmp)
         # ditpath = os.path.join(disdir,tmp.strip())
+        imgorgpath = os.path.join(imgdir,tmp[:-4]+'.jpg')
         img = cv2.imread(imgpath)
         tmpim = img[:,:,0]
         imgset = set(tmpim.flatten())
-        # for i in tmpls:
-        #     if i in imgset:
+        for i in tmpls:
+            if i in imgset:
+                tmp_dir = os.path.join(disdir,str(i))
+                if not os.path.exists(tmp_dir):
+                    os.makedirs(tmp_dir)
+                ditpath = os.path.join(tmp_dir,tmp[:-4]+'.jpg')
+                shutil.copyfile(imgorgpath,ditpath)
         #         fg = 1
         #         break
         # if fg==1:
-        #     shutil.copyfile(imgpath,ditpath)
-        if len(imgset)>1:
-            cnt+=1
+            # shutil.copyfile(imgpath,ditpath)
+        # if len(imgset)>1:
+        #     cnt+=1
     print(cnt)
 
 def convert20(imgdir,distdir):
@@ -110,5 +116,5 @@ if __name__ == '__main__':
     # cv2.imshow('src',img)
     # cv2.waitKey(0)
     # mat2png()
-    sel2label('/data/detect/VOC/VOCdevkit/VOC2010/Seglabels22','/data/detect/VOC/VOCdevkit/VOC2010/labels')
+    sel2label('/data/detect/VOC/VOCdevkit/VOC2010/Seglabels24','/data/detect/VOC/VOCdevkit/VOC2010/JPEGImages','/data/detect/VOC/VOCdevkit/VOC2010/label24')
     # convert20('/data/detect/VOC/VOCdevkit/VOC2010/labels','/data/detect/VOC/VOCdevkit/VOC2010/labels20')

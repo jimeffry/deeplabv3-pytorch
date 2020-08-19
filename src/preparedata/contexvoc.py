@@ -66,6 +66,12 @@ class ContextVoc(Dataset):
             im_lb = dict(im = img, lb = label)
             im_lb = self.trans_train(im_lb)
             img, label = im_lb['im'], im_lb['lb']
+        else:
+            w,h = img.size
+            w = int(np.ceil(w/8.0)*8)
+            h = int(np.ceil(h/8.0)*8)
+            img = img.resize((w, h), Image.BILINEAR)
+            label = label.resize((w, h), Image.NEAREST)
         img = self.to_tensor(img)
         label = np.array(label).astype(np.int64)
         # label = self.convert_dice_labels(label)
