@@ -50,7 +50,7 @@ class ImgSeg(object):
             if not os.path.exists(self.save_dir):
                 os.makedirs(self.save_dir)
         # self.mask = cv2.imread(args.maskpath)
-        self.kernel_size = 25
+        self.kernel_size = 55
 
     def loadtfmodel(self,mpath):
         tf_config = tf.ConfigProto()
@@ -72,11 +72,11 @@ class ImgSeg(object):
         #     # if 'input' in m.name or 'output' in m.name or 'confidence' in m.name:
         #     print(m.values()) #m.name,
         # print("********************end***************")
-        # self.input_image = self.sess.graph.get_tensor_by_name('img_input:0') #img_input
-        # self.cls_out = self.sess.graph.get_tensor_by_name('cls_out:0') #softmax_output
+        # self.input_image = self.sess.graph.get_tensor_by_name('input_1:0') #img_input
+        self.cls_out = self.sess.graph.get_tensor_by_name('cls_out:0') #softmax_output
         self.input_image = self.sess.graph.get_tensor_by_name('img_input:0')
-        self.cls_out = self.sess.graph.get_tensor_by_name('resnet_v1_101/logits/cls_out:0')
-
+        # self.cls_out = self.sess.graph.get_tensor_by_name('resnet_v1_101/logits/cls_out:0')
+        # self.cls_out = self.sess.graph.get_tensor_by_name('output:0')
         
     def propress(self,img):
         rgb_mean = np.array([0.485, 0.456, 0.406])[np.newaxis, np.newaxis,:].astype('float32')
@@ -85,7 +85,7 @@ class ImgSeg(object):
         h,w = img.shape[:2]
         gth = int(np.ceil(h/16.0)*16)
         gtw = int(np.ceil(w/16.0)*16)
-        # gth,gtw = (1088,1920)
+        gth,gtw = (1088,1920)
         img = cv2.resize(img,(gtw,gth))
         img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
         img = img.astype('float32')
@@ -101,7 +101,7 @@ class ImgSeg(object):
         img = self.propress(imgorg.copy())
         img = np.expand_dims(img,0)
         cls_out = self.sess.run(self.cls_out,feed_dict={self.input_image:img})
-        # print("***out shape:",np.shape(output))
+        print("***out shape:",np.shape(cls_out),cls_out.dtype)
         # cls_out = np.argmax(conf_out,axis=-1)
         cls_out = self.rescalImage(cls_out,imgw,imgh)
         masks = self.decodeColor(cls_out)
@@ -109,8 +109,8 @@ class ImgSeg(object):
         # accs = self.calarea(cls_out)
         t2 = time.time()
         print('consuming:',t2-t1)
-        # imgs_out,bboxes = self.get_boxarea(cls_out,[imgorg])
-        return masks,accs
+        imgs_out,bboxes = self.get_boxarea(cls_out,[imgorg])
+        return masks,imgs_out
 
     def rescalImage(self,imglist,imgw,imgh):
         imgout = []
@@ -176,6 +176,7 @@ class ImgSeg(object):
             frame = framelist[i]
             _,tmp_map = cv2.threshold(tmp_map,1,255,cv2.THRESH_BINARY_INV)
             # cv2.imshow('thresh',tmp_map)
+            # cv2.imwrite('test_threshold.jpg',tmp_map)
             kernelX = cv2.getStructuringElement(cv2.MORPH_RECT, (self.kernel_size,1 ))
             kernelY = cv2.getStructuringElement(cv2.MORPH_RECT, (1, self.kernel_size))
             # tmp_map = cv2.dilate(tmp_map, kernelX, iterations=2)
@@ -225,12 +226,12 @@ class ImgSeg(object):
                 img = cv2.imread(tmppath)
                 if img is None:
                     continue
-                tx1,tx2,ty1,ty2 = [1415,1872,45,90]
-                blx1,blx2,bly1,bly2 = [1770,1873,770,1024]
-                brx1,brx2,bry1,bry2 = [65,1784,970,1030]
-                img[ty1:ty2,tx1:tx2,:] =  cv2.medianBlur(img[ty1:ty2,tx1:tx2,:],19)
-                img[bly1:bly2,blx1:blx2,:] = cv2.medianBlur(img[bly1:bly2,blx1:blx2,:],31)
-                img[bry1:bry2,brx1:brx2,:] = cv2.medianBlur(img[bry1:bry2,brx1:brx2,:],31)
+                # tx1,tx2,ty1,ty2 = [1415,1872,45,90]
+                # blx1,blx2,bly1,bly2 = [1770,1873,770,1024]
+                # brx1,brx2,bry1,bry2 = [65,1784,970,1030]
+                # img[ty1:ty2,tx1:tx2,:] =  cv2.medianBlur(img[ty1:ty2,tx1:tx2,:],19)
+                # img[bly1:bly2,blx1:blx2,:] = cv2.medianBlur(img[bly1:bly2,blx1:blx2,:],31)
+                # img[bry1:bry2,brx1:brx2,:] = cv2.medianBlur(img[bry1:bry2,brx1:brx2,:],31)
                 # img[ty1:ty2,tx1:tx2,:] = cv2.bilateralFilter(img[ty1:ty2,tx1:tx2,:],31,20,5)
                 # img[ty1:ty2,tx1:tx2,:] = cv2.GaussianBlur(img[ty1:ty2,tx1:tx2,:],(19,19),0)
                 frame,areas = self.inference_img(img)
@@ -303,12 +304,13 @@ class ImgSeg(object):
                 # self.display_hotmap(hotmaps)
                 # keybindings for display
                 # show_image = cv2.addWeighted(src1=img, alpha=0.8, src2=self.mask, beta=0.2, gamma=0)
-                # print("area ",areas[0])
+                print("out shape ",frame_re[0].shape)
                 cv2.imshow('result',frame_re[0])
-                # cv2.imshow('mask',show_image)
-                # cv2.imshow('bbox',show_imgs[0])
-                cv2.imwrite(imgname,frame_re[0])
-                # cv2.imwrite(imgname+'.png',show_imgs[0])
+                # cv2.imshow('src',img)
+                cv2.imshow('bbox',show_imgs[0])
+                savepath = os.path.join(self.save_dir,imgname+'.jpg')
+                cv2.imwrite(savepath+'.png',frame_re[0])
+                cv2.imwrite(savepath,show_imgs[0])
                 key = cv2.waitKey(0) 
         else:
             print('please input the right img-path')

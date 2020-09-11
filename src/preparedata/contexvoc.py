@@ -19,7 +19,7 @@ class ContextVoc(Dataset):
     def __init__(self,filein,cropsize=(640, 480),mode='train', *args, **kwargs):
         super(ContextVoc, self).__init__(*args, **kwargs)
         self.mode = mode
-        self._annopath = osp.join('%s', 'Seglabels22', '%s.png')
+        self._annopath = osp.join('%s', 'Seglabels24', '%s.png')
         self._imgpath = osp.join('%s', 'JPEGImages', '%s.jpg')
         self.rootpath = cfgs.data_dir
         self.ids = list()

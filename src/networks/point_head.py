@@ -5,9 +5,9 @@ from torch.nn import functional as F
 import os
 import sys
 
-from .point_features import point_sample
+from point_features import point_sample
 sys.path.append(os.path.join(os.path.dirname(__file__),'../configs'))
-from config import cfgs as cfg
+from config import cfg
 
 # POINT_HEAD_REGISTRY = Registry("POINT_HEAD")
 # POINT_HEAD_REGISTRY.__doc__ = """
@@ -137,6 +137,7 @@ class StandardPointHead(nn.Module):
 
     def forward(self, fine_grained_features, coarse_features):
         x = torch.cat((fine_grained_features, coarse_features), dim=1)
+        # print('head',x.shape)
         for layer in self.fc_layers:
             x = F.relu(layer(x))
             if self.coarse_pred_each_layer:

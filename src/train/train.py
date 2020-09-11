@@ -14,9 +14,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__),'../preparedata'))
 # from cityscape import CityScapes
 from contexvoc import ContextVoc
 sys.path.append(os.path.join(os.path.dirname(__file__),'../networks'))
-# from deeplabv3pluss import DeeplabV3plus
-from deeplab_scarnet import DeeplabV3plus
-from scarnet import SCAR
+from deeplabv3pluss import DeeplabV3plus
+# from scarnet import SCAR
 sys.path.append(os.path.join(os.path.dirname(__file__),'../losses'))
 from loss import DiceLoss,OhemCELoss,SoftmaxFocalLoss,Multiloss
 from focalloss import FocalLoss
@@ -65,6 +64,15 @@ def createlogger(lpath):
     logger.addHandler(console)
     return logger
 
+def renamedict(statedict):
+    state_dict_new = dict()
+    for key,value in list(statedict.items()):
+        # print(key)
+        if 'cls_conv' in key :
+            continue
+        state_dict_new[key] = value
+    return state_dict_new
+
 def train_net(args):
     cropsize = [cfgs.crop_height, cfgs.crop_width]
     # dataset_train = CityScapes(cfgs.data_dir, cropsize=cropsize, mode='train')
@@ -77,7 +85,7 @@ def train_net(args):
         drop_last=True
     )
     # dataset_val = CityScapes(cfgs.data_dir,  mode='val')
-    dataset_val = ContextVoc(cfgs.val_file,cropsize=cropsize, mode='test')
+    dataset_val = ContextVoc(cfgs.val_file,cropsize=cropsize, mode='train')
     dataloader_val = DataLoader(
         dataset_val,
         batch_size=1,
@@ -92,11 +100,13 @@ def train_net(args):
     else:
         device = torch.device('cpu')
     # model = BiSeNet(args.num_classes, args.context_path)
-    # net = DeeplabV3plus(cfgs).to(device)
-    net = SCAR(load_weights=True).to(device)
+    net = DeeplabV3plus(cfgs).to(device)
+    # net = SCAR(load_weights=True).to(device)
     if args.pretrained_model_path is not None:
         print('load model from %s ...' % args.pretrained_model_path)
-        net.load_state_dict(torch.load(args.pretrained_model_path,map_location=device),strict=False)
+        state_dict = torch.load(args.pretrained_model_path,map_location=device)
+        state_dict = renamedict(state_dict)
+        net.load_state_dict(state_dict,strict=False)
         # net.load_state_dict(torch.load(args.pretrained_model_path))
         print('Done!')
     if args.mulgpu:
@@ -165,14 +175,17 @@ def main():
                 cv2.imshow('gt',gt)
                 cv2.waitKey(0)
             '''
-            seglogits,pointlogits,pointcoord = net(images)
-            loss = criterion(seglogits,pointlogits,pointcoord, target)
+            # seglogits,pointlogits,pointcoord = net(images)
+            seglogits = net(images)
+            # loss = criterion(seglogits,pointlogits,pointcoord, target)
+            loss = criterion(seglogits,target)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             step += 1
             # writer.add_scalar('loss_step', loss, step)
             loss_hist.append(float(loss.item()))
+            # print(step)
             if step % args.show_step == 0:
                 # print('tl',images.size(),target.size())
                 logger.info('epoch:{} || iter:{} || mloss:{:.6f}, cntloss:{:.6f} || lr:{:.6f}'.format(epoch,step,np.mean(loss_hist),loss.item(),optimizer.param_groups[0]['lr']))
@@ -182,9 +195,9 @@ def main():
                 if precision > max_miou:
                     max_miou = precision
                     if args.mulgpu:
-                        torch.save(net.module.state_dict(),os.path.join(cfgs.save_model_path, 'deeplabv3_voc_best.pth'))
+                        torch.save(net.module.state_dict(),os.path.join(cfgs.save_model_path, 'deeplabv3_wuwei_best.pth'))
                     else:
-                        torch.save(net.state_dict(),os.path.join(cfgs.save_model_path, 'deeplabv3_voc_best.pth'))
+                        torch.save(net.state_dict(),os.path.join(cfgs.save_model_path, 'deeplabv3_wuwei_best.pth'))
                     logger.info("saved model: ************* step: %d" % step)
                 # writer.add_scalar('step/precision_val', precision, step)
                 # writer.add_scalar('step/miou val', miou, step)
@@ -204,7 +217,7 @@ def val(args, model, dataloader,logger):
             predict = model(data)
             # for i in range(predicts.size(0)):
                 # predict = predicts[i]
-            predict = reverse_one_hot(predict)
+            # predict = reverse_one_hot(predict)
                 # get RGB label image
                 # label = labels[i]
             if args.losstype == 'dice':

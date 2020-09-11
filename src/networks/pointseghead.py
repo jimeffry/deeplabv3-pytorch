@@ -69,8 +69,8 @@ class PointRendSemSegHead(nn.Module):
                     self.oversample_ratio,
                     self.importance_sample_ratio,
                 )
-            coarse_features = point_sample(coarse_sem_seg_logits, point_coords, align_corners=False)
-            fine_grained_features = point_sample(features, point_coords, align_corners=False)
+            coarse_features = point_sample(coarse_sem_seg_logits, point_coords)
+            fine_grained_features = point_sample(features, point_coords)
             point_logits = self.point_head(fine_grained_features, coarse_features)
             # point_targets = (
             #     point_sample(
@@ -78,7 +78,7 @@ class PointRendSemSegHead(nn.Module):
             #         point_coords,
             #         mode="nearest",
             #         align_corners=False,
-            #     )
+            #     )     
             #     .squeeze(1)
             #     .to(torch.long)
             # )
@@ -96,10 +96,10 @@ class PointRendSemSegHead(nn.Module):
                 point_indices, point_coords = get_uncertain_point_coords_on_grid(
                     uncertainty_map, self.subdivision_num_points
                 )
-                fine_grained_features = point_sample(features, point_coords, align_corners=False)
+                fine_grained_features = point_sample(features, point_coords) # align_corners=False)
+                # print('fine',fine_grained_features.shape)
                 coarse_features = point_sample(
-                    coarse_sem_seg_logits, point_coords, align_corners=False
-                )
+                    coarse_sem_seg_logits, point_coords) #align_corners=False
                 point_logits = self.point_head(fine_grained_features, coarse_features)
                 # put sem seg point predictions to the right places on the upsampled grid.
                 N, C, H, W = sem_seg_logits.shape

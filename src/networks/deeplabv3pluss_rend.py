@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from torch.nn import init
 from backbone import build_backbone
 from aspp import ASPP
+from pointseghead import PointRendSemSegHead
 
 class DeeplabV3plus(nn.Module):
     def __init__(self, cfg):
@@ -23,7 +24,7 @@ class DeeplabV3plus(nn.Module):
         self.dropout1 = nn.Dropout(0.5)
         # self.upsample4 = nn.UpsamplingBilinear2d(scale_factor=4) 
         # self.upsample_sub = nn.UpsamplingBilinear2d(scale_factor=cfg.MODEL_OUTPUT_STRIDE//4)
-        self.upsample4 = nn.Upsample(scale_factor=4)
+        # self.upsample4 = nn.Upsample(scale_factor=4)
         self.upsample_sub = nn.Upsample(scale_factor=cfg.MODEL_OUTPUT_STRIDE//4)
 
         indim = 256
@@ -49,6 +50,7 @@ class DeeplabV3plus(nn.Module):
         self.backbone = build_backbone(cfg.MODEL_BACKBONE, os=cfg.MODEL_OUTPUT_STRIDE)
         # self.backbone_layers = self.backbone.get_layers()
         # print(len(self.backbone_layers))
+        self.pointhead = PointRendSemSegHead()
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
@@ -60,7 +62,7 @@ class DeeplabV3plus(nn.Module):
         x = x.permute(0,3,1,2)
         x_bottom = self.backbone(x)
         layers = self.backbone.get_layers()
-        # print('backout',layers[0].shape,layers[1].shape,layers[2].shape,layers[3].shape)
+        print('backout',layers[0].shape,layers[1].shape,layers[2].shape,layers[3].shape)
         feature_aspp = self.aspp(layers[-1])
         # print('asspp',feature_aspp.shape)
         feature_aspp = self.dropout1(feature_aspp)
@@ -72,12 +74,15 @@ class DeeplabV3plus(nn.Module):
         result = self.cat_conv(feature_cat) 
         # print('result',result.size())
         result = self.cls_conv(result)
-        result = self.upsample4(result)
+        pointout,pointcoords = self.pointhead(result,layers[0])
+        # result = self.upsample4(result)
         #for test
         if not self.training:
-            result = result.permute(0,2,3,1)
+            # result = F.interpolate(pointout,scale_factor=4,mode="bilinear",align_corners=False)
+            result = pointout.permute(0,2,3,1)
             result = F.softmax(result, dim=3)
             result = torch.argmax(result, dim=3)
-            output = result.new_tensor(result,dtype=torch.int32)
-        return output
+            return result
+        else:
+            return result,pointout,pointcoords
 

@@ -52,7 +52,7 @@ def generate_regular_grid_point_coords(R, side_size, device):
             for the regular grids.
     """
     aff = torch.tensor([[[0.5, 0, 0.5], [0, 0.5, 0.5]]], device=device)
-    r = F.affine_grid(aff, torch.Size((1, 1, side_size, side_size)), align_corners=False)
+    r = F.affine_grid(aff, torch.Size((1, 1, side_size, side_size))) #align_corners=False)
     return r.view(1, -1, 2).expand(R, -1, -1)
 
 
@@ -83,7 +83,8 @@ def get_uncertain_point_coords_with_randomness(
     num_boxes = coarse_logits.shape[0]
     num_sampled = int(num_points * oversample_ratio)
     point_coords = torch.rand(num_boxes, num_sampled, 2, device=coarse_logits.device)
-    point_logits = point_sample(coarse_logits, point_coords, align_corners=False)
+    point_logits = point_sample(coarse_logits, point_coords)
+    # print('random',coarse_logits.shape,point_logits.shape)
     # It is crucial to calculate uncertainty based on the sampled prediction value for the points.
     # Calculating uncertainties of the coarse predictions first and sampling them for points leads
     # to incorrect results.
@@ -94,8 +95,9 @@ def get_uncertain_point_coords_with_randomness(
     point_uncertainties = uncertainty_func(point_logits)
     num_uncertain_points = int(importance_sample_ratio * num_points)
     num_random_points = num_points - num_uncertain_points
-    idx = torch.topk(point_uncertainties[:, 0, :], k=num_uncertain_points, dim=1)[1]
+    idx = torch.topk(point_uncertainties[:, 0, :], k=num_uncertain_points, dim=1,largest=False)[1]
     shift = num_sampled * torch.arange(num_boxes, dtype=torch.long, device=coarse_logits.device)
+    # print('random',shift,len(idx))
     idx += shift[:, None]
     point_coords = point_coords.view(-1, 2)[idx.view(-1), :].view(
         num_boxes, num_uncertain_points, 2
@@ -131,7 +133,7 @@ def get_uncertain_point_coords_on_grid(uncertainty_map, num_points):
     w_step = 1.0 / float(W)
 
     num_points = min(H * W, num_points)
-    point_indices = torch.topk(uncertainty_map.view(R, H * W), k=num_points, dim=1)[1]
+    point_indices = torch.topk(uncertainty_map.view(R, H * W), k=num_points, dim=1,largest=False)[1]
     point_coords = torch.zeros(R, num_points, 2, dtype=torch.float, device=uncertainty_map.device)
     point_coords[:, :, 0] = w_step / 2.0 + (point_indices % W).to(torch.float) * w_step
     point_coords[:, :, 1] = h_step / 2.0 + (point_indices // W).to(torch.float) * h_step

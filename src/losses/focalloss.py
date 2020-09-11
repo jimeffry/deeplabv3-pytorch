@@ -74,6 +74,7 @@ class focalloss(nn.Module):
         loss = -((1 - pt) ** self.gamma) * self.alpha * logpt
         return loss
 
+
 if __name__=='__main__':
     a=torch.ones([2,3,5,5],dtype=torch.float32)
     b=torch.ones([2,1,5,5],dtype=torch.float32)

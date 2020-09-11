@@ -76,18 +76,18 @@ class SoftmaxFocalLoss(nn.Module):
 
 class Multiloss(nn.Module):
     def __init__(self,upscale):
-        super().__init__()
+        super(Multiloss,self).__init__()
         self.common_stride = upscale
 
     def forward(self,seglogits,pointlogits,pointcoords,targets):
         point_targets = (point_sample(targets.unsqueeze(1).to(torch.float),
-                    point_coords,
-                    mode="nearest",
-                    align_corners=False,
+                    pointcoords,
+                    mode="nearest"
                 )
                 .squeeze(1)
                 .to(torch.long)
             )
+        print('loss',pointcoords.shape,targets.shape,point_targets.shape,pointlogits.shape)
         ploss = F.cross_entropy(
                 pointlogits, point_targets, reduction="mean"
             )

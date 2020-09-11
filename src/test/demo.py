@@ -20,6 +20,7 @@ import torch
 import torch.nn.functional as F
 sys.path.append(os.path.join(os.path.dirname(__file__),'../networks'))
 from deeplabv3pluss import DeeplabV3plus
+# from deeplabv3pluss_rend import DeeplabV3plus
 from scarnet import SCAR
 sys.path.append(os.path.join(os.path.dirname(__file__),'../utils'))
 from util import reverse_one_hot
@@ -71,15 +72,17 @@ class GroundSeg(object):
             device = torch.device('cpu')
         self.net = DeeplabV3plus(cfgs).to(device)
         # self.net = SCAR(True).to(device)
+        # print(self.net)
         state_dict = torch.load(modelpath,map_location=device)
         # state_dict = self.renamedict(state_dict)
-        self.net.load_state_dict(state_dict)
+        self.net.load_state_dict(state_dict,strict=False)
         self.net.eval()
 
     def renamedict(self,statedict):
         state_dict_new = dict()
         for key,value in list(statedict.items()):
-            if 'conv_out16' in key or 'conv_out32' in key:
+            # print(key)
+            if 'cls_conv' in key :
                 continue
             state_dict_new[key] = value
         return state_dict_new
@@ -109,6 +112,7 @@ class GroundSeg(object):
         if self.use_cuda:
             bt_img = bt_img.cuda()
         predicts  = self.net(bt_img)
+        print("***********",predicts.dtype)
         # predicts = F.softmax(predicts, dim=1)
         t2 = time.time()
         print('inference time:',t2-t1)
@@ -212,11 +216,12 @@ class GroundSeg(object):
             else: 
                 while cap.isOpened():
                     _,img = cap.read()
-                    frame = self.inference([img])[0]
+                    cv2.imwrite(self.save_dir+'/testvideo.jpg',img)
+                    frame,_ = self.inference([img])
                     # out.write(frame)
-                    cv2.imshow('result',frame)
+                    cv2.imshow('result',frame[0])
                     q=cv2.waitKey(10) & 0xFF
-                    # cv2.imwrite('test_video1.jpg',frame)
+                    cv2.imwrite(self.save_dir+'/testvideo_result.jpg',frame[0])
                     if q == 27 or q ==ord('q'):
                         break
             cap.release()
@@ -228,7 +233,6 @@ class GroundSeg(object):
                 img = cv2.resize(img,(960,1280))
             if img is not None:
                 frame,acc = self.inference([img])
-                print('area',acc[0])
                 cv2.imshow('result',frame[0])
                 cv2.imshow('src',img)
                 # cv2.imwrite(imgname,frame[0])

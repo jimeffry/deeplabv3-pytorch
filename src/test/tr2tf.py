@@ -14,6 +14,7 @@ from tensorflow.python.platform import gfile
 
 sys.path.append(os.path.join(os.path.dirname(__file__),'../networks'))
 from deeplabv3pluss import DeeplabV3plus
+# from deeplabv3pluss_rend import DeeplabV3plus
 sys.path.append(os.path.join(os.path.dirname(__file__),'../configs'))
 from config import cfgs
 
@@ -35,7 +36,7 @@ def tr2onnx(modelpath):
     # print(net)
     # Export the trained model to ONNX
     dummy_input = Variable(torch.randn(1,1088,1920,3)) # picture will be the input to the model
-    export_onnx_file = '../models/deeplab.onnx'
+    export_onnx_file = '../models/deeplabv24.onnx'
     torch.onnx.export(net,
                     dummy_input,
                     export_onnx_file,
@@ -67,7 +68,7 @@ def onnx2tf(modelpath):
     # img = np.transpose(img,(2,0,1))
     # output = tf_rep.run(np.asarray(img, dtype=np.float32)[np.newaxis,:,:, :])
     # print('The digit is classified as ', np.sum(output))
-    tf_rep.export_graph('../models/waterSeg.pb')
+    tf_rep.export_graph('/data/models/img_seg/deeplabplus_24tf.pb')
 
 def pbtxt_to_graphdef(filename):
     with open(filename, 'r') as f:
@@ -88,11 +89,12 @@ def graphdef_to_pbtxt(filename):
 
 
 if __name__=='__main__':
-    modelpath = '/data/models/img_seg/deeplabv3_voc_best3.pth'
+    modelpath = '/data/models/img_seg/deeplabv3_wuwei24_best.pth'
     # modelpath = './srd_tr.pth'
-    # tr2onnx(modelpath)
-    # modelpath = '../models/deeplab.onnx'
-    modelpath = '/data/waterSeg_18.onnx'
+    tr2onnx(modelpath)
+    modelpath = '../models/deeplabv24.onnx'
+    # modelpath = '/data/waterSeg_18.onnx'
+    # modelpath = '/data/zz_ox.onnx'
     onnx2tf(modelpath)
     modelpath = '../models/deeplab.pb'
     # modelpath = '/data/models/head/csr_keras.pb'
